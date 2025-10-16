@@ -1,8 +1,13 @@
 package orderservice
 
-type Order struct {
+type OrderRequest struct {
 	UserId	string	`json:"userId"`
 	Items	[]Item	`json:"items"`
+}
+
+type Order struct {
+	*OrderRequest
+	Id string
 }
 
 type Item struct {

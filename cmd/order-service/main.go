@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/gayaldassanayake/rabbitmq-order-system/order-service"
+	orderservice "github.com/gayaldassanayake/rabbitmq-order-system/order-service"
 )
 
 func main() {
-	orderservice.RunOrderService()
+	orderservice.RunService()
 }
