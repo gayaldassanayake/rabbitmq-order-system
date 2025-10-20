@@ -13,12 +13,49 @@ Each service runs independently and communicates through RabbitMQ — no direct 
 
 ### Message Flow
 
-1. **Order Service** publishes an `order.created` event.  
-2. **Inventory Service** reserves stock.  
-3. **Payment Service** processes payment.  
-4. **Shipping Service** dispatches the order.  
-5. **Notification Service** broadcasts updates to the user.  
-6. **Audit Service** logs every event for analytics.
+1. Order System
+- Receives user’s order request (via HTTP).
+- Publishes order.created → order.exchange.
+
+2. Inventory Service
+- Consumes order.created.
+- Reserves stock, then publishes inventory.reserved or inventory.out_of_stock.
+
+3. Payment Service
+- Consumes inventory.reserved.
+- Processes payment, then publishes payment.success or payment.failed.
+
+5. Inventory Service (again)
+- Consumes payment.success.
+- Updates stock levels, then publishes inventory.committed.
+
+6. Order System (again)
+- Consumes payment.success.
+- Updates order status, then publishes order.paid.
+
+4. Shipping Service
+- Consumes payment.success.
+- Prepares shipment, then publishes shipping.prepared.
+
+5. Order System (again)
+- Consumes shipping.prepared.
+- Updates order status, then publishes order.shipped.
+
+6. Shipping Service (again)
+- Receives user's confirmation (simulated).
+- Publishes shipping.delivered.
+
+7. Order System (again)
+- Consumes shipping.delivered.
+- Updates order status to order.completed.
+
+6. Audit Service (Consumes from audit.fanout.exchange)
+- Consumes all events.
+- Logs all events for compliance.
+
+9. Notification Service
+- Consumes various order status events (order.*).
+- Sends different notifications (email/SMS) using a fanout exchange.
 
 ---
 

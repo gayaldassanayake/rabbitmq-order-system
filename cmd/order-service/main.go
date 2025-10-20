@@ -1,7 +1,7 @@
 package main
 
 import (
-	orderservice "github.com/gayaldassanayake/rabbitmq-order-system/order-service"
+	"github.com/gayaldassanayake/rabbitmq-order-system/order-service"
 )
 
 func main() {

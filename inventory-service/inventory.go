@@ -1,61 +1,47 @@
 package inventoryservice
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 
 	"github.com/gayaldassanayake/rabbitmq-order-system/internal/util"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func RunService() {
 	log.Printf("Inventory service is up and running")
-	conn, ch, _ := util.DeclareRabbitMQChannel()
+	conn, ch, confirms := util.DeclareRabbitMQChannel()
 	defer conn.Close()
 	defer ch.Close()
-	// TODO: verify confirms
 
-	err := ch.ExchangeDeclare(
-		util.OrderEventsExchange,
-		amqp.ExchangeTopic,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	util.FailOnError(err, fmt.Sprintf("Failed to declare exchange: %s", util.OrderEventsExchange))
+	instockOrders := make(chan util.Order)
+	pendingConfirms := make(map[uint64]util.Order)
+	go util.VerifyConfirms(confirms, pendingConfirms, instockOrders)
 
-	q, err := ch.QueueDeclare(
-		"",    // name
-		true,  // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	util.FailOnError(err, fmt.Sprintf("Failed to declare queue: %s", q.Name))
+	util.DeclareDomainExchange(ch, util.OrderExchange)
+	orders := util.DeclareBindAndConsumeFromQueue(ch, util.OrderCreatedTopic, util.OrderExchange, false)
 
-	err = ch.QueueBind(
-		q.Name,
-		util.OrderCreatedTopic,
-		util.OrderEventsExchange,
-		false,
-		nil,
-	)
-	util.FailOnError(err, fmt.Sprintf("Failed to bind queue: %s to exchange: %s", q.Name, util.OrderEventsExchange))
+	util.DeclareDomainExchange(ch, util.InventoryExchange)
 
-	msgs, err := ch.Consume(
-		q.Name,
-		"",
-		true, // Make auto ack false and manually acknowledge
-		true,
-		false,
-		false,
-		nil,
+	// Start publishing in a goroutine so it can read from instockOrders channel
+	go util.PublishEventsFromChannel(
+		ch,
+		util.InventoryExchange,
+		util.InventoryInstockTopic,
+		instockOrders,
+		pendingConfirms,
 	)
-	util.FailOnError(err, fmt.Sprintf("Failed to consume messages from queue: %s", q.Name))
-	for d := range msgs {
-		log.Printf("%s", d.Body)
+
+	for d := range orders {
+		var order util.Order
+		err := json.Unmarshal(d.Body, &order)
+		if err != nil {
+			log.Printf("Error unmarshalling order: %v", err)
+			continue
+		}
+		util.LogStruct(order)
+		// TODO: use mongodb and fetch the availability and reserve.
+		// For the sake of simplicity we will consider this as always in-stock.
+		d.Ack(false)
+		instockOrders <- order
 	}
 }

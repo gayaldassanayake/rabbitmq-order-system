@@ -6,7 +6,9 @@ const (
 	RabbitMQURL      = "amqp://guest:guest@localhost:5672/"
 	GlobalRetryCount = 3
 
-	OrderEventsExchange = "order.events.exchange"
+	OrderExchange = "order.exchange"
+	InventoryExchange = "inventory.exchange"
 
 	OrderCreatedTopic = "order.created.topic"
+	InventoryInstockTopic = "inventory.instock.topic"
 )

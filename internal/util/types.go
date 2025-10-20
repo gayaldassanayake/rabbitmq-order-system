@@ -1,4 +1,4 @@
-package orderservice
+package util
 
 type OrderRequest struct {
 	UserId	string	`json:"userId"`
